@@ -1,0 +1,19 @@
+{
+  "name": "iot",
+  "version": "1.0.0",
+  "description": "LitElement LED 元件示範專案",
+  "main": "index.js",
+  "scripts": {
+    "start": "live-server --port=3000 --open=./index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["lit", "led", "iot", "web-components"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lit": "^3.2.1"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}

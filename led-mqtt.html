@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED MQTT 控制測試</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "lit": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
+                "lit/": "https://cdn.jsdelivr.net/npm/lit@3.2.1/",
+                "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3.2.1/lit-html.js",
+                "lit-html/": "https://cdn.jsdelivr.net/npm/lit-html@3.2.1/",
+                "lit-element": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
+                "lit-element/": "https://cdn.jsdelivr.net/npm/lit@3.2.1/",
+                "lit-element/lit-element.js": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
+                "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/reactive-element.js",
+                "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/",
+                "@lit/reactive-element/decorators": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/decorators.js",
+                "@lit/reactive-element/decorators/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/decorators/"
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .led-panel {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .api-examples {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .mqtt-examples {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .success-info {
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 LED MQTT 控制面板</h1>
+        
+        <div class="success-info">
+            <h3>✅ 系統就緒</h3>
+            <p>MQTT LED 元件已載入完成，支援本地控制和遠端 MQTT 控制！</p>
+        </div>
+        
+        <div class="info">
+            <h2>本地控制 API</h2>
+            <p>您可以在瀏覽器的 console 中使用以下 API 來控制 LED：</p>
+            <div class="api-examples">
+                led.on()        // 點亮 LED<br>
+                led.off()       // 關閉 LED<br>
+                led.toggle()    // 切換 LED 狀態<br>
+                led.setColor('blue')   // 設定顏色<br>
+                led.setSize(50)        // 設定大小 (直徑 px)<br>
+                led.getState()         // 取得目前狀態
+            </div>
+        </div>
+
+        <div class="info">
+            <h2>🌐 MQTT 遠端控制</h2>
+            <p>發送 MQTT 訊息到以下 topic 即可遠端控制 LED：</p>
+            <div class="mqtt-examples">
+                Topic: led/command<br>
+                訊息格式:<br>
+                • {"command": "on()"} - 開啟 LED<br>
+                • {"command": "off()"} - 關閉 LED<br>
+                • {"command": "toggle()"} - 切換狀態<br>
+                • {"command": "setColor('blue')"} - 設定顏色<br>
+                • {"command": "setSize(60)"} - 設定大小<br>
+                • {"command": "getState()"} - 取得狀態
+            </div>
+        </div>
+
+        <div class="led-panel">
+            <h2>MQTT LED 元件</h2>
+            <led-light id="myLed" color="red" diameter="40" mqtt-sub="led"></led-light>
+            <div id="status" class="status">正在載入元件...</div>
+            <p>點擊 LED 可以切換開關狀態</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // 主要初始化函數
+        async function initializeApp() {
+            console.log('🔄 開始載入 LED 元件...');
+            
+            try {
+                // 動態載入 LED 元件
+                await import('./led-light.js');
+                console.log('✅ LED 元件載入成功');
+                
+                // 等待一下讓元件註冊完成
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                setupLedAPI();
+                
+            } catch (error) {
+                console.error('❌ LED 元件載入失敗:', error);
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = `❌ 元件載入失敗: ${error.message}`;
+                    statusElement.classList.add('error');
+                }
+            }
+        }
+        
+        // 設定 LED API
+        function setupLedAPI() {
+            console.log('🚀 開始初始化 LED API...');
+            
+            const ledElement = document.getElementById('myLed');
+            
+            if (!ledElement) {
+                console.error('❌ 找不到 LED 元件');
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = '❌ 找不到 LED 元件';
+                    statusElement.classList.add('error');
+                }
+                return;
+            }
+            
+            console.log('📱 LED 元件找到，設定中...', ledElement);
+            
+            // 建立全域 LED API 物件（向後相容）
+            window.led = {
+                on: () => {
+                    try {
+                        if (typeof ledElement.turnOn === 'function') {
+                            ledElement.turnOn();
+                        } else {
+                            ledElement.on = true;
+                        }
+                        console.log('✅ LED 已點亮');
+                    } catch (error) {
+                        console.error('❌ 開啟 LED 失敗:', error);
+                    }
+                },
+                
+                off: () => {
+                    try {
+                        if (typeof ledElement.turnOff === 'function') {
+                            ledElement.turnOff();
+                        } else {
+                            ledElement.on = false;
+                        }
+                        console.log('🔴 LED 已關閉');
+                    } catch (error) {
+                        console.error('❌ 關閉 LED 失敗:', error);
+                    }
+                },
+                
+                toggle: () => {
+                    try {
+                        if (typeof ledElement.toggle === 'function') {
+                            ledElement.toggle();
+                        } else {
+                            ledElement.on = !ledElement.on;
+                        }
+                        console.log(`🔄 LED 已${ledElement.on ? '點亮' : '關閉'}`);
+                    } catch (error) {
+                        console.error('❌ 切換 LED 失敗:', error);
+                    }
+                },
+                
+                setColor: (color) => {
+                    try {
+                        if (typeof ledElement.setColor === 'function') {
+                            ledElement.setColor(color);
+                        } else {
+                            ledElement.color = color;
+                        }
+                        console.log(`🎨 LED 顏色已設定為: ${color}`);
+                    } catch (error) {
+                        console.error('❌ 設定顏色失敗:', error);
+                    }
+                },
+                
+                setSize: (diameter) => {
+                    try {
+                        if (typeof ledElement.setSize === 'function') {
+                            ledElement.setSize(diameter);
+                        } else {
+                            ledElement.diameter = diameter;
+                        }
+                        console.log(`📏 LED 大小已設定為: ${diameter}px`);
+                    } catch (error) {
+                        console.error('❌ 設定大小失敗:', error);
+                    }
+                },
+                
+                getState: () => {
+                    try {
+                        let state;
+                        if (typeof ledElement.getState === 'function') {
+                            state = ledElement.getState();
+                        } else {
+                            state = {
+                                on: ledElement.on,
+                                color: ledElement.color,
+                                diameter: ledElement.diameter
+                            };
+                        }
+                        console.log('📊 LED 目前狀態:', state);
+                        return state;
+                    } catch (error) {
+                        console.error('❌ 取得狀態失敗:', error);
+                        return null;
+                    }
+                }
+            };
+            
+            // 監聽 LED 變化事件
+            ledElement.addEventListener('led-change', (event) => {
+                console.log('📡 LED 狀態變化:', event.detail);
+            });
+            
+            // 監聽 MQTT 連接事件
+            ledElement.addEventListener('mqtt-connected', (event) => {
+                console.log('🌐 MQTT 連接成功:', event.detail);
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = `✅ MQTT 已連接 (Device: ${event.detail.deviceId})`;
+                    statusElement.style.background = '#d4edda';
+                    statusElement.style.borderColor = '#c3e6cb';
+                    statusElement.classList.remove('error');
+                }
+            });
+            
+            // 監聽 MQTT 錯誤事件
+            ledElement.addEventListener('mqtt-error', (event) => {
+                console.error('❌ MQTT 連接錯誤:', event.detail.error);
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = `❌ MQTT 連接失敗: ${event.detail.error}`;
+                    statusElement.style.background = '#f8d7da';
+                    statusElement.style.borderColor = '#f5c6cb';
+                    statusElement.classList.add('error');
+                }
+            });
+            
+            // 初始狀態檢查
+            const statusElement = document.getElementById('status');
+            if (ledElement.mqttSub) {
+                console.log('🌐 MQTT 功能已啟用, topic:', ledElement.mqttSub);
+                if (statusElement) {
+                    statusElement.textContent = '🔗 正在連接 MQTT...';
+                }
+            } else {
+                console.log('⚠️ MQTT 功能未啟用');
+                if (statusElement) {
+                    statusElement.textContent = '⚠️ MQTT 功能未啟用（僅本地控制）';
+                    statusElement.style.background = '#fff3cd';
+                    statusElement.style.borderColor = '#ffeaa7';
+                }
+            }
+            
+            console.log('🎉 LED API 已準備就緒！');
+            console.log('🔴 本地控制指令：');
+            console.log('  led.on() - 點亮 LED');
+            console.log('  led.off() - 關閉 LED');
+            console.log('  led.toggle() - 切換狀態');
+            console.log('  led.setColor("blue") - 設定顏色');
+            console.log('  led.setSize(60) - 設定大小');
+            console.log('  led.getState() - 查看狀態');
+            console.log('🌐 MQTT 控制：發送訊息到 led/command topic');
+        }
+        
+        // 等待 DOM 載入完成後啟動
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+    </script>
+</body>
+</html> 
