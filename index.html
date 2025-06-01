@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroPython 編輯器</title>
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material-darker.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .toolbar {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .run-button {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(86, 171, 47, 0.3);
+        }
+
+        .run-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(86, 171, 47, 0.4);
+        }
+
+        .run-button:active {
+            transform: translateY(0);
+        }
+
+        .editor-container {
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .CodeMirror {
+            height: 500px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #212529;
+            color: #28a745;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid #495057;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .file-info {
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 MicroPython 編輯器</h1>
+            <p>編輯和執行您的 MicroPython 程式碼</p>
+        </div>
+
+        <div class="toolbar">
+            <div class="file-info">
+                <strong>檔案:</strong> micropython_led.py
+            </div>
+            <button class="run-button" onclick="runCode()">
+                ▶️ 執行程式碼
+            </button>
+        </div>
+
+        <div class="editor-container">
+            <textarea id="code-editor"></textarea>
+            
+            <div class="output" id="output">
+                <div style="color: #6c757d;">程式執行輸出將顯示在這裡...</div>
+            </div>
+            
+            <div class="status" id="status"></div>
+        </div>
+    </div>
+
+    <!-- CodeMirror JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/python/python.min.js"></script>
+
+    <script>
+        // 初始化 CodeMirror 編輯器
+        const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+            mode: 'python',
+            theme: 'material-darker',
+            lineNumbers: true,
+            indentUnit: 4,
+            smartIndent: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            lineWrapping: true,
+            extraKeys: {
+                "Ctrl-Space": "autocomplete"
+            }
+        });
+
+        // 預設的 MicroPython 程式碼
+        const defaultCode = `from machine import Pin
+import time
+
+# 1. 將腳位 1 設為輸出模式
+led = Pin(1, Pin.OUT)
+
+# 2. 進入迴圈，每隔 0.5 秒切換 LED 狀態
+while True:
+    led.on()       # 點亮
+    time.sleep(0.5)
+    led.off()      # 熄滅
+    time.sleep(0.5)`;
+
+        // 載入預設程式碼到編輯器
+        editor.setValue(defaultCode);
+
+        // 執行程式碼函數
+        function runCode() {
+            const code = editor.getValue();
+            const outputDiv = document.getElementById('output');
+            const statusDiv = document.getElementById('status');
+            
+            // 清除之前的狀態
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'none';
+            
+            // 模擬程式執行
+            outputDiv.innerHTML = '<div style="color: #ffc107;">正在執行程式碼...</div>';
+            
+            // 模擬執行延遲
+            setTimeout(() => {
+                try {
+                    // 這裡是模擬執行結果，實際應用中您需要連接到 MicroPython 設備
+                    const output = simulateMicroPythonExecution(code);
+                    outputDiv.innerHTML = output;
+                    
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ 程式執行成功！';
+                    statusDiv.style.display = 'block';
+                    
+                } catch (error) {
+                    outputDiv.innerHTML = '<div style="color: #dc3545;">❌ 執行錯誤: ' + error.message + '</div>';
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ 程式執行失敗！';
+                    statusDiv.style.display = 'block';
+                }
+            }, 1500);
+        }
+
+        // 模擬 MicroPython 執行結果
+        function simulateMicroPythonExecution(code) {
+            let output = '';
+            
+            if (code.includes('led.value(1)') || code.includes('led.on()')) {
+                output += '<div style="color: #28a745;">🔆 LED 已點亮 (引腳 1)</div>';
+            }
+            
+            if (code.includes('led.value(0)') || code.includes('led.off()')) {
+                output += '<div style="color: #6c757d;">💡 LED 已熄滅 (引腳 1)</div>';
+            }
+            
+            if (code.includes('while True:')) {
+                output += '<div style="color: #17a2b8;">🔄 開始 LED 閃爍循環...</div>';
+                output += '<div style="color: #28a745;">🔆 LED 點亮</div>';
+                output += '<div style="color: #6c757d;">⏱️ 等待 0.5 秒</div>';
+                output += '<div style="color: #6c757d;">💡 LED 熄滅</div>';
+                output += '<div style="color: #6c757d;">⏱️ 等待 0.5 秒</div>';
+                output += '<div style="color: #ffc107;">🔁 循環繼續...</div>';
+            }
+            
+            if (code.includes('from machine import Pin')) {
+                output += '<div style="color: #17a2b8;">📦 已匯入 machine.Pin 模組</div>';
+            }
+            
+            if (code.includes('import time')) {
+                output += '<div style="color: #17a2b8;">⏰ 已匯入 time 模組</div>';
+            }
+            
+            if (!output) {
+                output = '<div style="color: #6c757d;">程式執行完成，無輸出內容。</div>';
+            }
+            
+            output += '<div style="color: #28a745; margin-top: 10px;">✅ 程式執行完成</div>';
+            
+            return output;
+        }
+
+        // 鍵盤快捷鍵支援
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                runCode();
+            }
+        });
+
+        // 添加工具提示
+        document.querySelector('.run-button').title = '點擊執行程式碼 (Ctrl+Enter)';
+    </script>
+</body>
+</html>
