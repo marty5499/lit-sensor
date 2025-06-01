@@ -49,25 +49,21 @@ export class LedLight extends LitElement {
   async setupMqttConnection() {
     try {
       // 使用唯一的設備 ID（結合元素 ID 或生成隨機 ID）
-      const deviceId = this.id || `led-${Date.now()}`;
-      this.iotDevice = new IoTDevice(deviceId);
+      const effectiveDeviceId = this.mqttSub;
+      this.iotDevice = new IoTDevice(effectiveDeviceId);
       
-      console.log(`🔗 正在連接 MQTT... (Device ID: ${deviceId})`);
+      console.log(`🔗 正在連接 MQTT... (Device ID: ${effectiveDeviceId})`);
       await this.iotDevice.connect();
-      
-      // 訂閱指定的 topic
-      await this.iotDevice.subscribe(`${this.mqttSub}/+`);
-      console.log(`📡 已訂閱 topic: ${this.mqttSub}/+`);
       
       // 註冊訊息處理器
       this.iotDevice.proc('command', (message) => this.handleMqttCommand(message));
       
       this.isConnected = true;
-      console.log(`✅ LED MQTT 連接成功! 可以發送訊息到 ${this.mqttSub}/command`);
+      console.log(`✅ LED MQTT 連接成功! 可以發送訊息到 ${effectiveDeviceId}/command`);
       
       // 觸發連接成功事件
       this.dispatchEvent(new CustomEvent('mqtt-connected', {
-        detail: { deviceId, topic: this.mqttSub },
+        detail: { deviceId: effectiveDeviceId, topic: this.mqttSub },
         bubbles: true,
         composed: true
       }));

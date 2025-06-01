@@ -84,6 +84,54 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .mqtt-publisher-panel {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 30px;
+            border-left: 4px solid #17a2b8;
+        }
+        .mqtt-publisher-panel div {
+            margin-bottom: 10px;
+        }
+        .mqtt-publisher-panel label {
+            display: inline-block;
+            width: 150px; /* Adjust as needed */
+            margin-right: 5px;
+        }
+        .mqtt-publisher-panel input[type="text"],
+        .mqtt-publisher-panel input[type="password"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .mqtt-publisher-panel button {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .mqtt-publisher-panel button:hover {
+            background-color: #0056b3;
+        }
+        .mqtt-publisher-panel button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .mqtt-publisher-panel .status.error {
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .mqtt-publisher-panel .status.success {
+            color: #155724;
+            background-color: #d4edda;
+            padding: 5px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -129,6 +177,36 @@
             <div id="status" class="status">正在載入元件...</div>
             <p>點擊 LED 可以切換開關狀態</p>
         </div>
+
+        <!-- MQTT Publisher Test Panel -->
+        <div class="mqtt-publisher-panel">
+            <h2>MQTT Publisher Test</h2>
+            <p>Use this to send commands to the <code>led/command</code> topic (or any other topic).</p>
+            <div>
+                <label for="mqttHost">Broker URL:</label>
+                <input type="text" id="mqttHost" value="wss://mqtt-edu.webduino.io/mqtt" style="width: 200px;">
+            </div>
+            <div>
+                <label for="mqttUsername">Username:</label>
+                <input type="text" id="mqttUsername" value="hsh2025">
+            </div>
+            <div>
+                <label for="mqttPassword">Password:</label>
+                <input type="password" id="mqttPassword" value="hsh2025">
+            </div>
+            <div>
+                <label for="mqttTopic">Target Topic:</label>
+                <input type="text" id="mqttTopic" value="led/command">
+            </div>
+            <div>
+                <label for="mqttCommandInput">Command Payload:</label>
+                <input type="text" id="mqttCommandInput" placeholder="e.g., on() or setColor('green')" style="width: 250px;">
+                <button id="sendMqttCommandBtn">Send Command</button>
+            </div>
+            <div id="mqttPublisherStatus" class="status" style="margin-top: 10px;">Publisher not connected.</div>
+        </div>
+        <!-- End MQTT Publisher Test Panel -->
+
     </div>
 
     <script type="module">
@@ -324,6 +402,140 @@
         } else {
             initializeApp();
         }
+    </script>
+
+    <script>
+    // MQTT Publisher Script
+    document.addEventListener('DOMContentLoaded', () => {
+        const hostInput = document.getElementById('mqttHost');
+        const usernameInput = document.getElementById('mqttUsername');
+        const passwordInput = document.getElementById('mqttPassword');
+        const topicInput = document.getElementById('mqttTopic');
+        const commandInput = document.getElementById('mqttCommandInput');
+        const sendBtn = document.getElementById('sendMqttCommandBtn');
+        const statusDisplay = document.getElementById('mqttPublisherStatus');
+
+        let publisherClient = null;
+
+        function connectPublisher() {
+            if (publisherClient && publisherClient.connected) {
+                // If already connected and details haven't changed, no need to reconnect
+                // However, if called due to input change, we should force disconnect old one first
+                // This is handled by the change event listeners calling .end(true) before connectPublisher()
+            }
+
+            if (publisherClient) { // If there's an existing client, ensure it's properly closed before creating a new one
+                publisherClient.end(true, () => {
+                    console.log('Previous publisher client ended.');
+                    createNewPublisherConnection();
+                });
+            } else {
+                createNewPublisherConnection();
+            }
+        }
+
+        function createNewPublisherConnection() {
+            const brokerUrl = hostInput.value.trim();
+            const options = {
+                clientId: `mqtt-publisher-${Math.random().toString(16).substr(2, 8)}`,
+                username: usernameInput.value.trim(),
+                password: passwordInput.value, // Password can be empty string
+            };
+
+            statusDisplay.textContent = `Connecting to ${brokerUrl}...`;
+            statusDisplay.classList.remove('error', 'success');
+            sendBtn.disabled = true;
+
+            try {
+                publisherClient = mqtt.connect(brokerUrl, options);
+            } catch (error) {
+                console.error("MQTT Connection Error (Publisher):", error);
+                statusDisplay.textContent = `Error connecting: ${error.message}`;
+                statusDisplay.classList.add('error');
+                return;
+            }
+
+            publisherClient.on('connect', () => {
+                console.log('MQTT Publisher connected.');
+                statusDisplay.textContent = 'Publisher connected successfully.';
+                statusDisplay.classList.remove('error');
+                statusDisplay.classList.add('success');
+                sendBtn.disabled = false;
+            });
+
+            publisherClient.on('error', (err) => {
+                console.error('MQTT Publisher connection error:', err);
+                statusDisplay.textContent = `Publisher error: ${err.message}`;
+                statusDisplay.classList.add('error');
+                sendBtn.disabled = true;
+                if (publisherClient) {
+                    publisherClient.end(true);
+                    publisherClient = null;
+                }
+            });
+
+            publisherClient.on('close', () => {
+                console.log('MQTT Publisher disconnected.');
+                // Avoid overriding a more specific error message if one was just set
+                if (!statusDisplay.classList.contains('error')) {
+                     statusDisplay.textContent = 'Publisher disconnected.';
+                }
+                sendBtn.disabled = true;
+                publisherClient = null; // Ensure client is nulled out for re-connection logic
+            });
+
+            publisherClient.on('offline', () => {
+                console.log('MQTT Publisher offline.');
+                statusDisplay.textContent = 'Publisher is offline.';
+                statusDisplay.classList.add('error');
+                sendBtn.disabled = true;
+            });
+        }
+
+        // Initial connection attempt
+        connectPublisher();
+
+        // Reconnect if connection details change
+        hostInput.addEventListener('change', () => connectPublisher());
+        usernameInput.addEventListener('change', () => connectPublisher());
+        passwordInput.addEventListener('change', () => connectPublisher());
+
+        sendBtn.addEventListener('click', () => {
+            if (!publisherClient || !publisherClient.connected) {
+                statusDisplay.textContent = 'Publisher not connected. Attempting to connect...';
+                statusDisplay.classList.remove('success');
+                statusDisplay.classList.add('error');
+                connectPublisher(); // Attempt to reconnect
+                return;
+            }
+
+            const topic = topicInput.value.trim();
+            const commandStr = commandInput.value.trim();
+
+            if (!topic || !commandStr) {
+                statusDisplay.textContent = 'Topic and Command Payload cannot be empty.';
+                statusDisplay.classList.remove('success');
+                statusDisplay.classList.add('error');
+                return;
+            }
+
+            const messagePayload = JSON.stringify({ command: commandStr });
+
+            publisherClient.publish(topic, messagePayload, { qos: 0 }, (err) => {
+                if (err) {
+                    console.error('MQTT Publish error:', err);
+                    statusDisplay.textContent = `Publish error: ${err.message}`;
+                    statusDisplay.classList.remove('success');
+                    statusDisplay.classList.add('error');
+                } else {
+                    console.log(`Published to ${topic}: ${messagePayload}`);
+                    statusDisplay.textContent = `Sent to ${topic}: "${commandStr}"`;
+                    statusDisplay.classList.remove('error');
+                    statusDisplay.classList.add('success');
+                }
+            });
+        });
+    });
     </script>
 </body>
 </html> 
