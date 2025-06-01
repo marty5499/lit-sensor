@@ -8,17 +8,17 @@
     <script type="importmap">
         {
             "imports": {
-                "lit": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
-                "lit/": "https://cdn.jsdelivr.net/npm/lit@3.2.1/",
-                "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3.2.1/lit-html.js",
-                "lit-html/": "https://cdn.jsdelivr.net/npm/lit-html@3.2.1/",
-                "lit-element": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
-                "lit-element/": "https://cdn.jsdelivr.net/npm/lit@3.2.1/",
-                "lit-element/lit-element.js": "https://cdn.jsdelivr.net/npm/lit@3.2.1/index.js",
-                "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/reactive-element.js",
-                "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/",
-                "@lit/reactive-element/decorators": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/decorators.js",
-                "@lit/reactive-element/decorators/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/decorators/"
+                "lit": "https://cdn.skypack.dev/lit@3",
+                "lit/": "https://cdn.skypack.dev/lit@3/",
+                "lit-html": "https://cdn.skypack.dev/lit-html@3",
+                "lit-html/": "https://cdn.skypack.dev/lit-html@3/",
+                "lit-element": "https://cdn.skypack.dev/lit@3",
+                "lit-element/": "https://cdn.skypack.dev/lit@3/",
+                "lit-element/lit-element.js": "https://cdn.skypack.dev/lit@3",
+                "@lit/reactive-element": "https://cdn.skypack.dev/@lit/reactive-element@2",
+                "@lit/reactive-element/": "https://cdn.skypack.dev/@lit/reactive-element@2/",
+                "@lit/reactive-element/decorators": "https://cdn.skypack.dev/@lit/reactive-element@2/decorators",
+                "@lit/reactive-element/decorators/": "https://cdn.skypack.dev/@lit/reactive-element@2/decorators/"
             }
         }
     </script>
@@ -113,13 +113,13 @@
             <p>發送 MQTT 訊息到以下 topic 即可遠端控制 LED：</p>
             <div class="mqtt-examples">
                 Topic: led/command<br>
-                訊息格式:<br>
-                • {"command": "on()"} - 開啟 LED<br>
-                • {"command": "off()"} - 關閉 LED<br>
-                • {"command": "toggle()"} - 切換狀態<br>
-                • {"command": "setColor('blue')"} - 設定顏色<br>
-                • {"command": "setSize(60)"} - 設定大小<br>
-                • {"command": "getState()"} - 取得狀態
+                訊息格式 (純字串):<br>
+                • on() - 開啟 LED<br>
+                • off() - 關閉 LED<br>
+                • toggle() - 切換狀態<br>
+                • setColor('blue') - 設定顏色<br>
+                • setSize(60) - 設定大小<br>
+                • getState() - 取得狀態
             </div>
         </div>
 

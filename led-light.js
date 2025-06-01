@@ -19,7 +19,7 @@ export class LedLight extends LitElement {
     this.diameter = 30; // 預設直徑 30px
     this.mqttSub = '';
     this.iotDevice = null;
-    this.isConnected = false;
+    this.mqttConnected = false;
   }
 
   async connectedCallback() {
@@ -48,26 +48,25 @@ export class LedLight extends LitElement {
 
   async setupMqttConnection() {
     try {
-      // 使用唯一的設備 ID（結合元素 ID 或生成隨機 ID）
-      const deviceId = this.id || `led-${Date.now()}`;
+      // 使用 mqtt-sub 作為 deviceId，這樣 topic 格式會是 {mqttSub}/{action}
+      const deviceId = this.mqttSub;
       this.iotDevice = new IoTDevice(deviceId);
       
       console.log(`🔗 正在連接 MQTT... (Device ID: ${deviceId})`);
       await this.iotDevice.connect();
       
-      // 訂閱指定的 topic
-      await this.iotDevice.subscribe(`${this.mqttSub}/+`);
-      console.log(`📡 已訂閱 topic: ${this.mqttSub}/+`);
+      console.log(`📡 已自動訂閱 topic: ${deviceId}/+`);
       
-      // 註冊訊息處理器
+      // 註冊訊息處理器，現在 IoTDevice 支援純字串訊息
       this.iotDevice.proc('command', (message) => this.handleMqttCommand(message));
       
-      this.isConnected = true;
-      console.log(`✅ LED MQTT 連接成功! 可以發送訊息到 ${this.mqttSub}/command`);
+      this.mqttConnected = true;
+      console.log(`✅ LED MQTT 連接成功! 可以發送字串指令到 ${deviceId}/command`);
+      console.log(`📋 支援的指令格式: "on()", "off()", "toggle()", "setColor('blue')", "setSize(60)"`);
       
       // 觸發連接成功事件
       this.dispatchEvent(new CustomEvent('mqtt-connected', {
-        detail: { deviceId, topic: this.mqttSub },
+        detail: { deviceId, topic: `${deviceId}/command` },
         bubbles: true,
         composed: true
       }));
@@ -84,14 +83,24 @@ export class LedLight extends LitElement {
 
   handleMqttCommand(message) {
     try {
-      const command = message.payload?.command || message.payload;
-      console.log(`📨 收到 MQTT 指令:`, command);
+      // 處理 IoTDevice 傳遞的訊息
+      // message.payload 可能是 JSON 物件或純字串
+      let command = message.payload;
       
       if (typeof command === 'string') {
+        // 純字串指令
+        console.log(`📨 收到 MQTT 字串指令:`, command);
         this.executeCommand(command);
+      } else if (typeof command === 'object' && command.command) {
+        // JSON 格式：{"command": "toggle()"}
+        console.log(`📨 收到 MQTT JSON 指令:`, command.command);
+        this.executeCommand(command.command);
       } else if (typeof command === 'object' && command.method) {
-        // 支援物件格式 { method: 'on', params: [] }
+        // 物件格式：{ method: 'on', params: [] }
+        console.log(`📨 收到 MQTT 物件指令:`, command.method);
         this.executeCommand(command.method, command.params || []);
+      } else {
+        console.warn(`❓ 無法識別的 MQTT 指令格式:`, command);
       }
       
       return { success: true, state: this.getState() };
@@ -212,7 +221,7 @@ export class LedLight extends LitElement {
       on: this.on,
       color: this.color,
       diameter: this.diameter,
-      mqttConnected: this.isConnected
+      mqttConnected: this.mqttConnected
     };
   }
 
@@ -279,7 +288,7 @@ export class LedLight extends LitElement {
         @click="${this._toggleLed}"
       ></div>
       ${this.mqttSub ? html`
-        <div class="mqtt-indicator ${this.isConnected ? 'connected' : ''}"></div>
+        <div class="mqtt-indicator ${this.mqttConnected ? 'connected' : ''}"></div>
       ` : ''}
     `;
   }

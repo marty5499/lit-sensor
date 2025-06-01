@@ -147,7 +147,21 @@ class IoTDevice {
         return;
       }
 
-      var jsonMsg = JSON.parse(message.toString());
+      const messageStr = message.toString();
+      let jsonMsg;
+      
+      // 嘗試解析 JSON，如果失敗則當作純字串處理
+      try {
+        jsonMsg = JSON.parse(messageStr);
+      } catch (parseError) {
+        // 如果不是有效的 JSON，就當作純字串訊息處理
+        console.log(`[${this.deviceId} / ${this.mqttClientId}] Received plain text message: ${messageStr}`);
+        jsonMsg = {
+          payload: messageStr, // 純字串成為 payload
+          requestId: 'plain-text-' + uuidv4().substring(0, 8),
+          from: 'plain-text-sender'
+        };
+      }
 
       // Reply message for pubSync
       if (parts[1] === 'reply' && parts[2]) { // topic: {logicalDeviceId}/reply/{requestId}
@@ -195,14 +209,16 @@ class IoTDevice {
         };
       }
 
-      // Send reply for proc
+      // Send reply for proc (但純文字訊息不發送回覆)
       // Reply topic: {originalSenderLogicalId}/reply/{originalRequestId}
       const replyMsg = {
         requestId: jsonMsg.requestId,
         from: this.deviceId, // This is our logicalId
         payload: replyPayload
       };
-      if (this.client && this.client.connected && jsonMsg.from !== 'unknown-sender') {
+      if (this.client && this.client.connected && 
+          jsonMsg.from !== 'unknown-sender' && 
+          jsonMsg.from !== 'plain-text-sender') {
         this.client.publish(`${jsonMsg.from}/reply/${jsonMsg.requestId}`, JSON.stringify(replyMsg));
       }
     } catch (err) {
